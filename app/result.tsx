@@ -2,7 +2,7 @@
 
 import MusicList from "@/components/MusicList";
 import MusicPlayer from "@/components/MusicPlayer";
-import { API_URL } from "@/src/config"; // 경로 맞춰 import
+import { API_URL } from "@/src/config";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
@@ -19,14 +19,24 @@ export default function ResultScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
 
+  const [comfort, setComfort] = useState<string | null>(null);
+  const [quote, setQuote] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // const res = await fetch(`http://<YOUR_PC_IP>:3000/api/music?emotion=${emotion}`);
-        //const res = await fetch(`http://172.30.1.78:3000/api/music?emotion=${emotion}`);
-        const res = await fetch(`${API_URL}/music?emotion=${emotion}`);
+        const res = await fetch(`${API_URL}/analyze-emotion-music`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emotion }),
+        });
         const data = await res.json();
-        setMusics(data);
+
+        console.log("Analysis result:", data);
+
+        setComfort(data.comfortMessage);
+        setQuote(data.inspirationalQuote);
+        setMusics(data.youtubeResults);
       } catch (err) {
         console.error(err);
       } finally {
@@ -48,6 +58,9 @@ export default function ResultScreen() {
     <View style={styles.container}>
       <Text style={styles.header}>Selected Emotion: {emotion}</Text>
 
+      {comfort && <Text style={styles.text}>💡 {comfort}</Text>}
+      {quote && <Text style={styles.text}>📖 {quote}</Text>}
+
       <MusicList musics={musics} onSelect={(m) => setSelectedMusic(m)} />
 
       {selectedMusic && (
@@ -65,5 +78,6 @@ export default function ResultScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#111827", padding: 20 },
   header: { fontSize: 24, fontWeight: "bold", color: "white", marginBottom: 20 },
+  text: { fontSize: 16, color: "white", marginBottom: 10 },
   selected: { marginTop: 20, fontSize: 16, color: "cyan", textAlign: "center" },
 });

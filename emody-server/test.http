@@ -1,0 +1,22 @@
+### Health check
+GET http://localhost:3000/api/health
+
+### 감정 분석 API
+POST http://localhost:3000/api/analyze-emotion
+Content-Type: application/json
+
+{
+  "text": "요즘 너무 피곤하고 우울해",
+  "language": "ko",
+  "useAiMusic": true
+}
+
+### 상담 채팅 API
+POST http://localhost:3000/api/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    { "role": "user", "content": "안녕하세요. 요즘 불안해요." }
+  ]
+}

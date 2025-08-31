@@ -1,3 +1,4 @@
+// (tabs)/index.tsx
 import EmotionGrid from "@/components/EmotionGrid";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";

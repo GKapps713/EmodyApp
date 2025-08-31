@@ -1,3 +1,5 @@
+// routes/index.js
+
 import express from "express";
 import musicRouter from "./music.js";
 // 앞으로 emotionRouter, audioRouter 같은 것도 여기에 import 하면 됨
