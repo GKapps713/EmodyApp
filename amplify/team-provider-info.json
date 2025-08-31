@@ -1,0 +1,15 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-emodyapp-dev-f8010-authRole",
+      "UnauthRoleArn": "arn:aws:iam::980637429569:role/amplify-emodyapp-dev-f8010-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::980637429569:role/amplify-emodyapp-dev-f8010-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-emodyapp-dev-f8010-deployment",
+      "UnauthRoleName": "amplify-emodyapp-dev-f8010-unauthRole",
+      "StackName": "amplify-emodyapp-dev-f8010",
+      "StackId": "arn:aws:cloudformation:us-east-1:980637429569:stack/amplify-emodyapp-dev-f8010/b8aca150-8022-11f0-8525-0afff43b4ebf",
+      "AmplifyAppId": "d2zcb8zq7l3yzi"
+    }
+  }
+}
