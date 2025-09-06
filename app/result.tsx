@@ -25,10 +25,10 @@ export default function ResultScreen() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`${API_URL}/analyze-emotion-music`, {
+        const res = await fetch(`${API_URL}/analyze-emotion`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ emotion }),
+          body: JSON.stringify({ text: emotion, language: "ko", useAiMusic: false }),
         });
         const data = await res.json();
 

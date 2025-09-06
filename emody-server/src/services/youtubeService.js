@@ -1,4 +1,4 @@
-// services/youtubeService.js
+// emody-server/src/services/openaiService.js
 
 export async function searchYouTubeMusic(query, apiKey) {
   const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${query}+music&key=${apiKey}`;

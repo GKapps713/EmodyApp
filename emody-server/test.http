@@ -1,3 +1,5 @@
+// emody-server/test.http
+ 
 ### Health check
 GET http://localhost:3000/api/health
 
@@ -19,4 +21,14 @@ Content-Type: application/json
   "messages": [
     { "role": "user", "content": "안녕하세요. 요즘 불안해요." }
   ]
+}
+
+### Stable Audio API (AI 음악 생성)
+POST http://localhost:3000/api/stable-audio/generate
+Content-Type: application/json
+
+{
+  "prompt": "calm ambient piano with soft pads",
+  "seconds": 10,
+  "style": "lofi, cinematic"
 }

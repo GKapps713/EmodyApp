@@ -1,3 +1,5 @@
+// emody-server/src/routes/chat.js
+
 import express from "express";
 import { chatWithGpt } from "../services/openaiService.js";
 

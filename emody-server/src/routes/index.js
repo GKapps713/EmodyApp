@@ -1,12 +1,18 @@
-// routes/index.js
-
+// emody-server/src/routes/index.js
 import express from "express";
-import musicRouter from "./music.js";
-// 앞으로 emotionRouter, audioRouter 같은 것도 여기에 import 하면 됨
+import analyzeEmotionMusicRouter from "./analyzeEmotionMusic.js";
+import chatRouter from "./chat.js";
+import stableAudioRouter from "./stable-audio.js"; // 추가
 
 const router = express.Router();
 
-// /api/music → musicRouter 처리
-router.use("/music", musicRouter);
+// /api/chat → chatRouter
+router.use("/chat", chatRouter);
+
+// /api/analyze-emotion → analyzeEmotionMusicRouter
+router.use("/analyze-emotion", analyzeEmotionMusicRouter);
+
+// /api/stable-audio → stableAudioRouter
+router.use("/stable-audio", stableAudioRouter);
 
 export default router;
