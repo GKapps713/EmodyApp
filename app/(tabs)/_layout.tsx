@@ -1,4 +1,3 @@
-// (tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
@@ -8,6 +7,8 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+
+import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -26,19 +27,34 @@ export default function TabLayout() {
           },
           default: {},
         }),
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="house.fill" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="emotion"   // ✅ 파일명과 일치시켜야 함 (app/(tabs)/emotion.tsx)
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Mood Music", // ✅ 사용자에게 보이는 이름
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="musical-notes-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      {/* ✅ 새 Chat 탭 추가 */}
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble-ellipses-outline" color={color} size={size} />
+          ),
         }}
       />
     </Tabs>

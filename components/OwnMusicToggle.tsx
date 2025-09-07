@@ -1,3 +1,5 @@
+// components/OwnMusicToggle.tsx
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { Switch, Text, View } from "react-native";
@@ -26,7 +28,7 @@ export default function OwnMusicToggle({
   return (
     <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}>
       <Switch value={enabled} onValueChange={toggle} />
-      <Text style={{ marginLeft: 8, fontSize: 16 }}>나만의 음악</Text>
+      <Text style={{ marginLeft: 8, fontSize: 16, color: "white" }}>AI Music</Text>
     </View>
   );
 }

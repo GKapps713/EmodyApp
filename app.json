@@ -4,7 +4,7 @@
     "slug": "EmodyApp",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/emody.png",
     "scheme": "emodyapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,8 +19,8 @@
     "android": {
       "versionCode": 2,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/emody.png",
+        "backgroundColor": "#FDE4F2"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.gkapps713.emodyapp"
@@ -40,7 +40,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

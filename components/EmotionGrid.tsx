@@ -9,9 +9,14 @@ type Emotion = {
 type EmotionGridProps = {
   emotions: Emotion[];
   onSelect: (label: string) => void;
+  ListHeaderComponent?: React.ReactElement; // ✅ 추가
 };
 
-export default function EmotionGrid({ emotions, onSelect }: EmotionGridProps) {
+export default function EmotionGrid({
+  emotions,
+  onSelect,
+  ListHeaderComponent, // ✅ 구조분해에 포함
+}: EmotionGridProps) {
   return (
     <View style={styles.grid}>
       <FlatList
@@ -26,6 +31,7 @@ export default function EmotionGrid({ emotions, onSelect }: EmotionGridProps) {
             onPress={() => onSelect(item.label)}
           />
         )}
+        ListHeaderComponent={ListHeaderComponent} // ✅ 이제 정상 작동
       />
     </View>
   );
