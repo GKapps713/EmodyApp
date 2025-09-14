@@ -42,11 +42,10 @@ export default function HomeScreen() {
 
       // 결과 전역 상태에 저장
       setResult({
-        emotion: label,
-        comfort: data.comfortMessage,
-        quote: data.inspirationalQuote,
-        youtubeResults: data.youtubeResults,
-        aiMusic: null, // EmotionTab에서 AI 음악 제거됨
+        emotion: data.emotion,     // 서버에서 분석된 감정으로 저장 (label 대신)
+        comfort: data.comfort,     // ✅ 서버 응답 키와 일치
+        quote: data.quote,         // ✅ 서버 응답 키와 일치
+        youtubeResults: data.youtubeResults
       });
 
       // EmotionTab으로 이동

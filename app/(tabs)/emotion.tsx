@@ -1,6 +1,5 @@
 import MusicPlayer from "@/components/MusicPlayer";
 import { useResult } from "@/src/ResultContext";
-import { useAudioPlayer } from "expo-audio";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
@@ -16,7 +15,6 @@ import {
 export default function EmotionTab() {
   const { result } = useResult();
   const [selectedMusic, setSelectedMusic] = useState<any | null>(null);
-  const aiPlayer = useAudioPlayer(result.aiMusic?.url ?? "");
   const router = useRouter();
 
   // ✅ 스크롤 제어용 ref
@@ -24,11 +22,11 @@ export default function EmotionTab() {
   const playerRef = useRef<View>(null);
 
   const handleSelectMusic = (item: any) => {
-  setSelectedMusic(item);
-  setTimeout(() => {
-    scrollRef.current?.scrollToEnd({ animated: true });
-  }, 100);
-};
+    setSelectedMusic(item);
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
 
   if (!result.emotion) {
     return (
@@ -43,7 +41,7 @@ export default function EmotionTab() {
   return (
     <View style={styles.container}>
       {/* ✅ 헤더 */}
-      <View style={styles.headerWrapper}>
+      {/* <View style={styles.headerWrapper}>
         <View style={styles.headerTop}>
           <Image
             source={require("@/assets/images/emody.png")}
@@ -51,10 +49,7 @@ export default function EmotionTab() {
           />
           <Text style={styles.headerTitle}>Emody</Text>
         </View>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.back}>← Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      </View> */}
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         {/* 감정 카드 */}
@@ -73,7 +68,7 @@ export default function EmotionTab() {
         {result.youtubeResults && (
           <View style={styles.musicGroup}>
             <Text style={styles.sectionTitle}>
-              🎵 Recommended Music ({result.youtubeResults.length}곡)
+              🎵 Recommended Music ({result.youtubeResults.length})
             </Text>
             <View style={styles.musicListBox}>
               {result.youtubeResults.map((item, idx) => {
@@ -119,22 +114,6 @@ export default function EmotionTab() {
               ▶ Now Playing: {selectedMusic.title}
             </Text>
             <MusicPlayer key={selectedMusic.videoId} videoId={selectedMusic.videoId} />
-          </View>
-        )}
-
-        {/* AI 음악 */}
-        {result.aiMusic && (
-          <View style={{ marginTop: 20 }}>
-            <Text style={styles.sectionTitle}>🤖 AI Generated Music</Text>
-            <TouchableOpacity
-              style={styles.musicItem}
-              onPress={() => aiPlayer.play()}
-            >
-              <View style={styles.aiMusicBox}>
-                <Text style={styles.musicTitle}>{result.aiMusic.title}</Text>
-                <Text style={styles.musicArtist}>AI Composer</Text>
-              </View>
-            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -256,9 +235,6 @@ const styles = StyleSheet.create({
     color: "cyan",
     textAlign: "center",
   },
-
-  // AI 음악
-  aiMusicBox: { flex: 1 },
 
   // 기본 텍스트
   text: {

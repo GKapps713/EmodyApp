@@ -1,3 +1,5 @@
+// MusicList.tsx
+
 import { FlatList } from "react-native";
 import MusicCard from "./MusicCard";
 

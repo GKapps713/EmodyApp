@@ -9,8 +9,7 @@ Content-Type: application/json
 
 {
   "text": "요즘 너무 피곤하고 우울해",
-  "language": "ko",
-  "useAiMusic": true
+  "language": "ko"
 }
 
 ### 상담 채팅 API

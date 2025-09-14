@@ -1,3 +1,5 @@
+// MusicCard.tsx
+
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type MusicCardProps = {

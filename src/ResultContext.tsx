@@ -6,7 +6,6 @@ type ResultData = {
   comfort?: string;
   quote?: string;
   youtubeResults?: { title: string; artist: string; videoId: string }[];
-  aiMusic?: { title: string; url: string };
 };
 
 // Context 타입 정의

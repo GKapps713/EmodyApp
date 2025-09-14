@@ -1,3 +1,5 @@
+// EmotionCard.tsx
+
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 
 type EmotionCardProps = {

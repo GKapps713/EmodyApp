@@ -17,14 +17,12 @@ console.log("✅ OPENAI_API_KEY:", process.env.OPENAI_API_KEY?.slice(0, 10));
 const baseSystemPromptKo = `당신은 감정 분석 전문가이자 음악 치료사입니다. 
 사용자의 텍스트(혹은 감정 단어)를 분석하여 다음 9가지 감정 중 하나로 분류하고, 
 위로의 말(comfortMessage), 위인의 명언(inspirationalQuote), 음악 추천(musicRecommendation),
-그리고 StableAudio용 aiMusicPrompt를 포함한 JSON을 작성하세요.
-
 감정 종류: sadness, joy, anxiety, anger, tired, emptiness, touched, confident, shy`;
 
 // 📌 언어별 프롬프트
 const emotionPrompts = {
   ko: {
-    system: (useAiMusic = false) => `
+    system: () => `
 ${baseSystemPromptKo}
 
 반드시 아래 JSON 구조를 지켜주세요:
@@ -37,8 +35,7 @@ ${baseSystemPromptKo}
     "searchQueries": ["string", "string", "string", "string", "string"],
     "genre": "string",
     "mood": "string"
-  }${useAiMusic ? `,
-  "aiMusicPrompt": "string"` : ""}
+  }
 }
 `,
     user: (text) =>
@@ -59,8 +56,7 @@ Return a JSON object with the following structure:
     "searchQueries": ["string", "string", "string", "string", "string"],
     "genre": "string",
     "mood": "string"
-  }${useAiMusic ? `,
-  "aiMusicPrompt": "string"` : ""}
+  }
 }
 `,
     user: (text) =>
@@ -69,10 +65,10 @@ Return a JSON object with the following structure:
 };
 
 // 📌 감정 분석
-export async function analyzeEmotion({ text, language = "ko", useAiMusic = false }) {
+export async function analyzeEmotion({ text, language = "ko" }) {
   try {
     const prompts = emotionPrompts[language] || emotionPrompts["en"];
-    const systemPrompt = prompts.system(useAiMusic);
+    const systemPrompt = prompts.system();
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -91,7 +87,6 @@ export async function analyzeEmotion({ text, language = "ko", useAiMusic = false
       comfortMessage: result.comfortMessage,
       inspirationalQuote: result.inspirationalQuote,
       musicRecommendation: result.musicRecommendation,
-      aiMusicPrompt: result.aiMusicPrompt,
     };
   } catch (error) {
     console.error("❌ OpenAI analyzeEmotion error:", error);

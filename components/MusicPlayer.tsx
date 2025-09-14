@@ -1,3 +1,5 @@
+// MusicPlayer.tsx
+
 import { StyleSheet, View } from "react-native";
 import YoutubePlayer from "react-native-youtube-iframe";
 
