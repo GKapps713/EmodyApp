@@ -1,15 +1,15 @@
+// app/(tabs)/moodMusic.tsx
 import MusicPlayer from "@/components/MusicPlayer";
 import { useResult } from "@/src/ResultContext";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 export default function EmotionTab() {
@@ -31,7 +31,6 @@ export default function EmotionTab() {
   if (!result.emotion) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="cyan" />
         <Text style={styles.text}>No emotion selected yet.</Text>
         <Text style={styles.text}>Go to Home and pick an emotion 🎭</Text>
       </View>

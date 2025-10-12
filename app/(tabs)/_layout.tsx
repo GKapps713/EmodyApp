@@ -40,8 +40,8 @@ export default function TabLayout() {
       />
 
       {/* Mood Music */}
-      <Tabs.Screen
-        name="emotion"
+      {/* <Tabs.Screen
+        name="moodMusic"
         options={{
           title: "Mood Music",
           tabBarIcon: ({ color, size }) => (
@@ -52,10 +52,10 @@ export default function TabLayout() {
             />
           ),
         }}
-      />
+      /> */}
 
       {/* My Echoes */}
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="myechoes"
         options={{
           title: "My Echoes",
@@ -63,10 +63,10 @@ export default function TabLayout() {
             <Ionicons name="headset-outline" size={size} color={color} />
           ),
         }}
-      />
+      /> */}
 
       {/* Our Echo */}
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="ourecho"
         options={{
           title: "Our Echo",
@@ -74,10 +74,10 @@ export default function TabLayout() {
             <Ionicons name="earth-outline" size={size} color={color} />
           ),
         }}
-      />
+      /> */}
 
       {/* Chat */}
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="chat"
         options={{
           title: "Chat",
@@ -89,10 +89,21 @@ export default function TabLayout() {
             />
           ),
         }}
+      /> */}
+
+      {/* DEV (개발 전용) */}
+      <Tabs.Screen
+        name="dev"
+        options={{
+          title: "DEV",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="hammer-outline" size={size} color={color} />
+          ),
+        }}
       />
 
       {/* My Emody */}
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="myemody"
         options={{
           title: "My Emody",
@@ -100,7 +111,8 @@ export default function TabLayout() {
             <Ionicons name="person-circle-outline" size={size} color={color} />
           ),
         }}
-      />
+      /> */}
+
     </Tabs>
   );
 }

@@ -22,6 +22,16 @@ Content-Type: application/json
   ]
 }
 
+### 상담 채팅 API
+POST https://api.emodyapp.com/api/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    { "role": "user", "content": "안녕하세요. 요즘 불안해요." }
+  ]
+}
+
 ### Stable Audio API (AI 음악 생성)
 POST http://localhost:3000/api/stable-audio/generate
 Content-Type: application/json

@@ -108,3 +108,40 @@ export async function chatWithGpt(messages) {
     throw new Error("Failed to chat with GPT: " + (error.message || error));
   }
 }
+
+export async function generateStableAudioPrompt({ emotion, mood, instruments, style }) {
+  try {
+    const instrumentText = instruments?.length ? instruments.join(", ") : "various instruments";
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert at writing rich, vivid, and concise prompts for AI music generation (Stable Audio). Always focus on atmosphere, instrumentation, and style.",
+        },
+        {
+          role: "user",
+          content: `
+Generate a Stable Audio music prompt based on these details:
+- Emotion: ${emotion}
+- Mood: ${mood}
+- Instruments: ${instrumentText}
+- Style: ${style}
+
+Write a vivid and descriptive prompt (1–2 sentences max) that clearly conveys:
+- The overall atmosphere and emotion
+- The instrumentation and how they should sound
+- The style or genre of the piece
+
+Avoid generic phrases, be specific and creative, but do not exceed two sentences.`,
+        },
+      ],
+    });
+
+    return response.choices[0].message.content?.trim() || "";
+  } catch (err) {
+    console.error("❌ generateStableAudioPrompt error:", err);
+    throw err;
+  }
+}

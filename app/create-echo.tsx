@@ -7,6 +7,8 @@ import {
   View,
 } from "react-native";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import Step1Emotion from "@/components/create-echo/steps/Step1Emotion";
 import Step2Mood from "@/components/create-echo/steps/Step2Mood";
 import Step3Rhythm from "@/components/create-echo/steps/Step3Rhythm";
@@ -16,6 +18,8 @@ import Step6Extra from "@/components/create-echo/steps/Step6Extra";
 import Step7Finalize from "@/components/create-echo/steps/Step7Finalize";
 
 export default function CreateEcho() {
+
+  const insets = useSafeAreaInsets(); // ✅ 안전영역 값 가져오기
   const router = useRouter();
   const totalSteps = 7;
   const [step, setStep] = useState(1);
@@ -103,17 +107,25 @@ export default function CreateEcho() {
       {/* Step 7 */}
       {step === 7 && (
         <Step7Finalize
-          onPrev={prevStep}
-          onSave={(title, duration) => {
-            saveSelection("title", title);
-            saveSelection("duration", duration);
-            console.log("Final selections:", { ...selections, title, duration });
-          }}
-        />
+        onPrev={prevStep}
+        selections={selections} // ✅ 현재까지 모인 선택값 전달
+        onSave={(title, duration) => {
+        saveSelection("title", title);
+        saveSelection("duration", duration);
+
+      const finalSelections = { ...selections, title, duration };
+      console.log("Final selections:", finalSelections);
+    }}
+  />
       )}
 
       {/* Step indicator */}
-      <View style={styles.stepIndicator}>
+      <View
+        style={[
+          styles.stepIndicator,
+          { marginBottom: insets.bottom + 10 }, // ✅ 홈인디케이터 피해서 여백 추가
+        ]}
+      >
         {Array.from({ length: totalSteps }).map((_, i) => (
           <View
             key={i}
@@ -154,7 +166,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginVertical: 20,
+    marginTop: 10,
   },
   dot: {
     width: 12,
