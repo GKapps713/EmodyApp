@@ -1,4 +1,3 @@
-// app/dev.tsx
 import { Audio, ResizeMode, Video } from "expo-av";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
@@ -9,8 +8,22 @@ import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { generateTracks, requestMerge, uploadVideo, type Track, type UploadedVideo } from "../../src/utils/api";
 
+import { API_URL } from "@/src/config";
+import * as AuthSession from "expo-auth-session";
+
 type Step = "idle" | "uploading" | "uploaded" | "genWorking" | "tracksReady" | "merging" | "merged" | "error";
 
+// TikTok OAuth Discovery 객체 정의
+const discovery = {
+  authorizationEndpoint: "https://www.tiktok.com/v2/auth/authorize/",
+  tokenEndpoint: "https://open-api.tiktok.com/oauth/access_token/",
+};
+
+// TikTok Client Key와 Secret
+// const TIKTOK_CLIENT_KEY = "awzlxl0rjmzl0tkd";
+// const TIKTOK_CLIENT_SECRET = "V0tlzc9n9qM0wmzWRfE4yHsZtthfaXxv";
+
+// 버튼 컴포넌트
 const Button = ({ title, onPress, disabled }: { title: string; onPress?: () => void; disabled?: boolean }) => (
   <Pressable
     onPress={onPress}
@@ -29,6 +42,123 @@ const Button = ({ title, onPress, disabled }: { title: string; onPress?: () => v
 );
 
 export default function DevPage() {
+
+const [isConnecting, setIsConnecting] = useState(false);
+
+// 🔹 TikTok 로그인 시연용 (mock)
+const mockLoginTikTok = async () => {
+  try {
+    setIsConnecting(true);
+    // 2~3초 동안 "Connecting..." 화면 유지
+    await new Promise((res) => setTimeout(res, 2500));
+    setIsConnecting(false);
+    setTkUserToken("mock_token_123"); // 가짜 토큰 저장
+    Alert.alert("TikTok", "Login successful! You can now upload your video.");
+  } catch (e) {
+    setIsConnecting(false);
+    Alert.alert("TikTok Error", "로그인 시뮬레이션 실패");
+  }
+};
+
+
+  const [tkUserToken, setTkUserToken] = useState<string | null>(null);
+  const [tiktokUploading, setTiktokUploading] = useState(false);
+
+  // TikTok OAuth 요청 준비
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: "emodyapp" });
+  console.log("[TikTok Redirect URI]", redirectUri);
+  
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: "awzlxl0rjmzl0tkd", // 실제 clientKey 사용
+      responseType: "code",
+      redirectUri,
+      scopes: ["user.info.basic", "video.upload"],
+    },
+    discovery
+  );
+
+  // 인증 완료 후 처리
+  React.useEffect(() => {
+    if (response?.type === "success" && response.params?.code) {
+      loginTikTok(response.params.code, redirectUri);
+    }
+  }, [response]);
+
+  const loginTikTok = async (code: string, redirectUri: string) => {
+    try {
+      // 서버에서 코드 → 토큰 교환
+      const response = await fetch(`${API_URL}/auth/tiktok/exchange`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, redirectUri }),
+      });
+
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      setTkUserToken(data.access_token); // access_token 저장
+      Alert.alert("TikTok", "Login successful! You can now upload your video.");
+    } catch (e: any) {
+      Alert.alert("TikTok Login Error", e.message ?? "failed to login");
+    }
+  };
+
+  // TikTok 비디오 업로드 (Mock용)
+  const mockUploadToTikTokAsUser = async () => {
+  if (!tkUserToken) {
+    Alert.alert("TikTok", "Please log in to TikTok first.");
+    return;
+  }
+
+  try {
+    setTiktokUploading(true);
+
+    // Simulate upload delay (2.5 seconds)
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    // Success message
+    Alert.alert(
+      "TikTok",
+      "Upload request completed! Check your TikTok inbox."
+    );
+  } catch (e: any) {
+    Alert.alert(
+      "TikTok Upload Error",
+      e.message ?? "Upload failed."
+    );
+  } finally {
+    setTiktokUploading(false);
+  }
+};
+
+  // TikTok 비디오 업로드 함수
+  const uploadToTikTokAsUser = async () => {
+    if (!tkUserToken) {
+      Alert.alert("TikTok", "먼저 TikTok 로그인을 해주세요.");
+      return;
+    }
+    try {
+      setTiktokUploading(true);
+      const res = await fetch(`${API_URL}/sns/tiktok/publish-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: tkUserToken,
+          videoUrl: mergedUrl,  // mergedUrl 사용
+          title: "Made with EmodyApp 🎵",
+          visibility: "PUBLIC",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const j = await res.json();
+      Alert.alert("TikTok", "업로드 요청 완료! TikTok 인박스에서 확인하세요.");
+    } catch (e: any) {
+      Alert.alert("TikTok Upload Error", e.message ?? "failed");
+    } finally {
+      setTiktokUploading(false);
+    }
+  };
+
   const [step, setStep] = useState<Step>("idle");
   const [err, setErr] = useState<string | null>(null);
 
@@ -164,7 +294,7 @@ export default function DevPage() {
     setErr(null);
     try {
       setStep("merging");
-      const merged = await requestMerge(uploaded.videoId, selectedTrack.trackId);
+      const merged = await requestMerge(uploaded.videoId, selectedTrack.trackId, selectedTrack.url);
       console.log("[mergeNow] merged result:", merged);
       setMergedUrl(merged.mergedUrl);
       setStep("merged");
@@ -175,17 +305,17 @@ export default function DevPage() {
   };
 
   // ✅ 플랫폼별 다운로드 처리
-const downloadMerged = async () => {
-  if (!mergedUrl) return;
-  try {
-    if (Platform.OS === "web") {
-      // 🌐 Web: 브라우저 다운로드 링크 트리거
-      const a = document.createElement("a");
-      a.href = mergedUrl;
-      a.download = `merged_${Date.now()}.mp4`;
-      a.click();
-      return;
-    }
+  const downloadMerged = async () => {
+    if (!mergedUrl) return;
+    try {
+      if (Platform.OS === "web") {
+        // 🌐 Web: 브라우저 다운로드 링크 트리거
+        const a = document.createElement("a");
+        a.href = mergedUrl;
+        a.download = `merged_${Date.now()}.mp4`;
+        a.click();
+        return;
+      }
 
     // 📱 모바일: 갤러리 저장
     const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -202,43 +332,30 @@ const downloadMerged = async () => {
 
     const dest = cacheDir + filename;
     const { uri } = await FileSystem.downloadAsync(mergedUrl, dest);
+
     await MediaLibrary.saveToLibraryAsync(uri);
     Alert.alert("Downloaded", "Video saved to your gallery!");
-  } catch (e: any) {
-    Alert.alert("Download Error", e.message ?? "failed to download");
-  }
-};
-
-  const shareLink = async () => {
-    if (!mergedUrl) return;
-    try {
-      if (!canShare) {
-        Alert.alert("Share", "Sharing is not available on this device.");
-        return;
-      }
-      await Sharing.shareAsync(mergedUrl);
     } catch (e: any) {
-      Alert.alert("Share Error", e.message ?? "failed to share");
+    Alert.alert("Download Error", e.message ?? "failed to download");
     }
   };
 
   return (
     <ScrollView
-      // ✅ 스크롤 문제 해결: contentContainerStyle로 바닥 여백 확보
       contentContainerStyle={{
         paddingTop: 48,
         paddingHorizontal: 16,
         paddingBottom: 120, // 하단 제스처 바/네비를 고려한 충분한 여백
       }}
       keyboardShouldPersistTaps="handled"
-      // (옵션) 안드로이드 특정 기기에서 도움됨
       nestedScrollEnabled
-      // style은 배경만 주고 flex는 제거 (일부 레이아웃에서 스크롤 저해 요인)
       style={{ backgroundColor: "#0b1220" }}
       scrollIndicatorInsets={{ bottom: 80 }}
     >
       <Text style={{ color: "white", fontSize: 20, fontWeight: "800", marginBottom: 8 }}>EmodyApp DEV</Text>
-      <Text style={{ color: "#93c5fd", marginBottom: 16 }}>MVP — Upload → Create music → Merge → Download/Share</Text>
+      <Text style={{ color: "#93c5fd", marginBottom: 16 }}>
+        MVP — Upload → Create music → Merge → Download/Share
+      </Text>
 
       {/* STEP 1 */}
       <View style={{ backgroundColor: "#111827", borderRadius: 12, padding: 12, marginBottom: 12 }}>
@@ -250,7 +367,9 @@ const downloadMerged = async () => {
         {uploaded && (
           <View style={{ gap: 4 }}>
             <Text style={{ color: "#d1d5db" }}>videoId: {uploaded.videoId}</Text>
-            <Text style={{ color: "#d1d5db" }} numberOfLines={1}>url: {uploaded.videoUrl}</Text>
+            <Text style={{ color: "#d1d5db" }} numberOfLines={1}>
+              url: {uploaded.videoUrl}
+            </Text>
             <Video
               ref={videoRef}
               source={{ uri: uploaded.videoUrl }}
@@ -286,8 +405,12 @@ const downloadMerged = async () => {
                   marginBottom: 8,
                 }}
               >
-                <Text style={{ color: "white", fontWeight: "600" }}>{item.title || item.trackId}</Text>
-                <Text style={{ color: "#9ca3af" }} numberOfLines={1}>{item.url}</Text>
+                <Text style={{ color: "white", fontWeight: "600" }}>
+                  {item.title || item.trackId}
+                </Text>
+                <Text style={{ color: "#9ca3af" }} numberOfLines={1}>
+                  {item.url}
+                </Text>
                 <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
                   {previewLoading && isSelected ? (
                     <ActivityIndicator />
@@ -313,7 +436,9 @@ const downloadMerged = async () => {
         </View>
         {mergedUrl && (
           <View>
-            <Text style={{ color: "#d1d5db" }} numberOfLines={1}>mergedUrl: {mergedUrl}</Text>
+            <Text style={{ color: "#d1d5db" }} numberOfLines={1}>
+              mergedUrl: {mergedUrl}
+            </Text>
             <Video
               source={{ uri: mergedUrl }}
               style={{ width: "100%", height: 220, backgroundColor: "black", borderRadius: 8, marginTop: 8 }}
@@ -325,13 +450,26 @@ const downloadMerged = async () => {
       </View>
 
       {/* STEP 4 */}
-      <View style={{ backgroundColor: "#111827", borderRadius: 12, padding: 12, marginBottom: 12 }}>
-        <Text style={{ color: "white", fontWeight: "700", marginBottom: 8 }}>Step 4 — Download / Share</Text>
-        <View style={{ flexDirection: "row" }}>
-          <Button title="Download (dev)" onPress={downloadMerged} disabled={!mergedUrl} />
-          {/* <Button title="Share link" onPress={shareLink} disabled={!mergedUrl || !canShare} /> */}
-        </View>
-      </View>
+    <View style={{ backgroundColor: "#111827", borderRadius: 12, padding: 12, marginBottom: 12 }}>
+  <Text style={{ color: "white", fontWeight: "700", marginBottom: 8 }}>Step 4 — Download / Share</Text>
+
+  {/* 로그인 중 메시지 표시 */}
+  {isConnecting ? (
+    <View style={{ alignItems: "center", paddingVertical: 16 }}>
+      <ActivityIndicator color="#60a5fa" size="large" />
+      <Text style={{ color: "#93c5fd", marginTop: 8, fontWeight: "600" }}>Connecting to TikTok...</Text>
+    </View>
+  ) : (
+    <View style={{ flexDirection: "row" }}>
+      <Button
+        title={tkUserToken ? "Upload to TikTok" : "Login TikTok"}
+        onPress={tkUserToken ? mockUploadToTikTokAsUser : mockLoginTikTok}
+        disabled={tkUserToken ? (!mergedUrl || tiktokUploading) : false}
+      />
+      {(tiktokUploading || isConnecting) && <ActivityIndicator style={{ marginLeft: 8 }} />}
+    </View>
+  )}
+</View>
 
       {/* ✅ 스크롤 여유 공간 (안전 여백) */}
       <View style={{ height: 48 }} />

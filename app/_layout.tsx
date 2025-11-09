@@ -7,7 +7,13 @@ import 'react-native-get-random-values';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { ResultProvider } from '@/src/ResultContext'; // ✅ 추가
+
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.error, // info/warn 숨기기
+  strict: false,
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -21,14 +27,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ResultProvider> {/* ✅ 앱 전체를 감싼다 */}
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </ResultProvider>
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <StatusBar style="auto" />
+    </ThemeProvider>
   );
 }

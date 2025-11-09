@@ -1,8 +1,13 @@
+// services/storage.service.js
+
 // ESM
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { UPLOAD_DIR } from '../middlewares/upload.middleware.js';
+
+// Re-export UPLOAD_DIR
+export { UPLOAD_DIR }; // Add this line
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

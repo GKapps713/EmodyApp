@@ -14,13 +14,9 @@ function makeId(n = 12) {
   return randomBytes(n).toString('hex');
 }
 
-async function callStableAudioOnce({ prompt, seconds = 30, style }) {
-  if (!STABILITY_API_KEY) {
-    throw new Error('Missing STABILITY_API_KEY');
-  }
-  if (!prompt) {
-    throw new Error('Missing prompt');
-  }
+async function callStableAudioOnce({ prompt, seconds = 30, style, steps = 50 }) {
+  if (!STABILITY_API_KEY) throw new Error('Missing STABILITY_API_KEY');
+  if (!prompt) throw new Error('Missing prompt');
 
   const fullPrompt = style ? `${prompt}. Style: ${style}` : prompt;
 
@@ -28,6 +24,7 @@ async function callStableAudioOnce({ prompt, seconds = 30, style }) {
   form.append('prompt', fullPrompt);
   form.append('duration', String(seconds));
   form.append('output_format', 'mp3');
+  form.append('steps', String(steps)); // ✅ 추가
 
   const resp = await fetch(`${STABILITY_API_BASE}${GENERATE_PATH}`, {
     method: 'POST',
@@ -47,7 +44,6 @@ async function callStableAudioOnce({ prompt, seconds = 30, style }) {
   const data = await resp.json();
   if (!data.audio) throw new Error('No audio data in response');
 
-  // base64 → Buffer → 파일 저장
   const buf = Buffer.from(data.audio, 'base64');
   const id = data.id ?? makeId(8);
   const filename = `stable_${id}_${Date.now()}.mp3`;
@@ -55,24 +51,19 @@ async function callStableAudioOnce({ prompt, seconds = 30, style }) {
   fs.writeFileSync(abs, buf);
 
   return {
-    trackId: filename,               // 파일명을 trackId로 사용
-    title: fullPrompt.slice(0, 64),  // 제목은 prompt 일부
-    url: toPublicUrl(filename),      // 퍼블릭 접근 URL
+    trackId: filename,
+    title: fullPrompt.slice(0, 64),
+    url: toPublicUrl(filename),
     duration: data.duration ?? seconds,
     prompt: fullPrompt,
   };
 }
 
-/**
- * Stable Audio로 트랙 n개 생성 (파일 저장 버전)
- * @param {{prompt: string, seconds?: number, style?: string, count?: number}} params
- * @returns {{ tracks: Array<{trackId,title,url,duration,prompt}> }}
- */
-export async function generateStableAudioTracks({ prompt, seconds = 30, style, count = 1 }) {
-  const n = Math.max(1, Math.min(Number(count) || 1, 5)); // 안전하게 최대 5개 제한
+export async function generateStableAudioTracks({ prompt, seconds = 30, style, count = 1, steps = 50 }) {
+  const n = Math.max(1, Math.min(Number(count) || 1, 5));
   const tracks = [];
   for (let i = 0; i < n; i++) {
-    const t = await callStableAudioOnce({ prompt, seconds, style });
+    const t = await callStableAudioOnce({ prompt, seconds, style, steps }); // ✅ 전달
     tracks.push(t);
   }
   return { tracks };

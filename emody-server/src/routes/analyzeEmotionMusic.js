@@ -40,4 +40,27 @@ router.post("/", async (req, res) => {
   }
 });
 
+/** ✅ 추가: 분석만 반환 (YouTube 제외) */
+router.post("/basic", async (req, res) => {
+  try {
+    const { text, language = "ko" } = req.body;
+    if (!text) return res.status(400).json({ error: "text is required" });
+
+    const analysis = await analyzeEmotion({ text, language });
+
+    const responseData = {
+      emotion: analysis.emotionType,
+      comfort: analysis.comfortMessage,
+      quote: analysis.inspirationalQuote,
+      searchQueries: analysis.musicRecommendation?.searchQueries || [],
+      // youtubeResults 제거
+    };
+
+    res.json(responseData);
+  } catch (err) {
+    console.error("AnalyzeEmotionMusic-basic error:", err);
+    res.status(500).json({ error: "Failed to analyze emotion (basic)" });
+  }
+});
+
 export default router;

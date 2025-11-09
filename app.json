@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "EmodyApp",
+    "name": "SoundFit",
     "slug": "EmodyApp",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/emody.png",
     "scheme": "emodyapp",
@@ -25,12 +25,13 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.gkapps713.emodyapp",
+      "targetSdkVersion": 33,
       "permissions": [
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_VIDEO",
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_AUDIO"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_AUDIO"
       ]
     },
     "web": {
@@ -50,7 +51,15 @@
         }
       ],
       "expo-audio",
-      "expo-media-library"
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow EmodyApp to access your photos and videos.",
+          "savePhotosPermission": "Allow EmodyApp to save generated videos to your device.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,18 +1,22 @@
-// src/routes/media.routes.js
-import { Router } from 'express';
-import { videoUpload } from '../middlewares/upload.middleware.js';
-import { toPublicUrl } from '../services/storage.service.js';
+import { Router } from "express";
+import fs from "fs";
+import fetch from "node-fetch";
+import path from "path";
+import { videoUpload } from "../middlewares/upload.middleware.js";
+import { toPublicUrl, UPLOAD_DIR } from "../services/storage.service.js";
 
 const router = Router();
 
-// 업로드는 그대로 유지
-router.post('/upload-video', videoUpload.single('file'), async (req, res, next) => {
+// ✅ Step 1 — Upload video
+router.post("/upload-video", videoUpload.single("file"), async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'file is required' });
+      return res.status(400).json({ error: "file is required" });
     }
+
     const { filename, size } = req.file;
     const videoUrl = toPublicUrl(filename);
+
     return res.json({
       videoId: filename,
       filename,
@@ -27,32 +31,82 @@ router.post('/upload-video', videoUpload.single('file'), async (req, res, next) 
   }
 });
 
-// ✅ 동기 병합: 완료되면 바로 mergedUrl 반환
-router.post('/merge', async (req, res, next) => {
+// ✅ Step 3 — Merge (Stable Audio or Mock track)
+router.post("/merge", async (req, res, next) => {
   try {
-    const { videoId, trackId } = req.body || {};
+    const { videoId, trackId, trackUrl } = req.body || {}; // ✅ trackUrl 추가
     if (!videoId || !trackId) {
-      return res.status(400).json({ error: 'videoId and trackId are required' });
+      return res.status(400).json({ error: "videoId and trackId are required" });
     }
 
-    console.log(`[MERGE] start`, { videoId, trackId });
+    console.log("[MERGE] start", { videoId, trackId, trackUrl });
 
-    // 서버 부팅 시가 아니라, 요청 시에만 import
-    const { mergeVideoAndAudio } = await import('../services/ffmpeg.service.js');
+    const { mergeVideoAndAudio } = await import("../services/ffmpeg.service.js");
 
-    const merged = await mergeVideoAndAudio(videoId, trackId, {
-      onProgress: (p) => {
-        // 필요하면 간단히 로그만
-        if (p % 10 === 0) console.log(`[MERGE] progress ${p}%`);
-      },
-    });
+    const videoPath = path.join(UPLOAD_DIR, videoId);
+    if (!fs.existsSync(videoPath)) {
+      return res.status(404).json({ error: "Video file not found" });
+    }
 
-    console.log(`[MERGE] done`, merged);
-    // 예: { mergedId, mergedUrl, width?, height?, duration? }
+    let audioPath;
+    let tempFile = null;
+
+    // ✅ trackUrl이 존재하면 우선 사용
+    if (trackUrl && /^https?:\/\//i.test(trackUrl)) {
+      console.log("[MERGE] Using external audio from trackUrl:", trackUrl);
+
+      const response = await fetch(trackUrl);
+      if (!response.ok) throw new Error(`Failed to download audio: ${response.statusText}`);
+
+      const tmpFile = path.join(UPLOAD_DIR, `tmp_${Date.now()}.mp3`);
+      const fileStream = fs.createWriteStream(tmpFile);
+      await new Promise((resolve, reject) => {
+        response.body.pipe(fileStream);
+        response.body.on("error", reject);
+        fileStream.on("finish", resolve);
+      });
+
+      audioPath = tmpFile;
+      tempFile = tmpFile;
+    } else if (/^https?:\/\//i.test(trackId)) {
+      // ✅ 예전 호환 (trackId가 URL인 경우)
+      console.log("[MERGE] Detected external audio URL:", trackId);
+
+      const response = await fetch(trackId);
+      if (!response.ok) throw new Error(`Failed to download audio: ${response.statusText}`);
+
+      const tmpFile = path.join(UPLOAD_DIR, `tmp_${Date.now()}.mp3`);
+      const fileStream = fs.createWriteStream(tmpFile);
+      await new Promise((resolve, reject) => {
+        response.body.pipe(fileStream);
+        response.body.on("error", reject);
+        fileStream.on("finish", resolve);
+      });
+
+      audioPath = tmpFile;
+      tempFile = tmpFile;
+    } else {
+      // ✅ Stable Audio 파일 로컬 처리
+      audioPath = path.join(UPLOAD_DIR, trackId);
+      if (!fs.existsSync(audioPath)) {
+        throw new Error(`Audio file not found: ${audioPath}`);
+      }
+    }
+
+    const merged = await mergeVideoAndAudio(videoPath, audioPath);
+    console.log("[MERGE] done", merged);
+
+    if (tempFile && fs.existsSync(tempFile)) {
+      fs.unlink(tempFile, (err) => {
+        if (err) console.warn("[MERGE] temp cleanup failed:", err);
+        else console.log("[MERGE] temp file deleted:", tempFile);
+      });
+    }
+
     return res.json(merged);
   } catch (err) {
-    console.error('[MERGE] error', err);
-    next(err);
+    console.error("[MERGE] error", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
