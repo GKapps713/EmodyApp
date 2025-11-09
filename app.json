@@ -2,14 +2,14 @@
   "expo": {
     "name": "SoundFit",
     "slug": "EmodyApp",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/emody.png",
     "scheme": "emodyapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "buildNumber": "1",
+      "buildNumber": "2",
       "supportsTablet": true,
       "bundleIdentifier": "com.gkapps713.emodyapp",
       "infoPlist": {
@@ -18,7 +18,7 @@
       }
     },
     "android": {
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/emody.png",
         "backgroundColor": "#FDE4F2"

@@ -1,6 +1,7 @@
 // src/features/compose/components/PulseButton.tsx
 import React, { useEffect } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
+
 import Animated, {
   Easing,
   cancelAnimation,
@@ -8,8 +9,11 @@ import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withTiming
+  withRepeat, // ✅ 추가
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
+
 import type { Phase } from "../compose.types";
 import ProgressRing from "./ProgressRing";
 
@@ -30,11 +34,20 @@ export default function PulseButton({
 
   useEffect(() => {
     cancelAnimation(scale);
+
     if (phase === "idle") {
-      scale.value = withTiming(1.05, { duration: 1300, easing: Easing.inOut(Easing.ease) });
-      scale.value = withTiming(0.97, { duration: 1300, easing: Easing.inOut(Easing.ease) });
+      // 1.05 → 0.97 → 반복 (부드럽게 왕복)
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 1300, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.97, { duration: 1300, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1, // 무한 반복
+        true // mirror=false여도 시퀀스가 왕복이므로 true/false 상관X, 취향껏
+      );
     } else {
-      scale.value = withTiming(1, { duration: 200 });
+      // 다른 단계에선 스케일 정상화
+      scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.cubic) });
     }
   }, [phase]);
 

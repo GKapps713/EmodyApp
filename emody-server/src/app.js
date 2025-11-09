@@ -1,5 +1,4 @@
 // src/app.js
-
 import cors from "cors";
 import express from "express";
 import fs from "fs";
@@ -7,11 +6,9 @@ import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import analyzeEmotionMusicRouter from "./routes/analyzeEmotionMusic.js";
 import analyzeVideoRouter from "./routes/analyzeVideo.js";
 import tiktokAuthRoutes from "./routes/auth.tiktok.js";
 import chatRouter from "./routes/chat.js";
-import routes from "./routes/index.js"; // 기존 index.js 라우트
 import mediaRouter from "./routes/media.routes.js";
 import musicRouter from "./routes/music.routes.js";
 import promptRouter from "./routes/prompt.js";
@@ -117,12 +114,7 @@ app.get("/tiktokkKwOmayoc1WLbQIWHEoVeBXWhwdvYihu.txt", (req, res) => {
 // API 라우트
 // ───────────────────────────────────────────────────────────
 
-// 기존 index.js
-app.use("/api", routes);
-
-// 신규 라우트
 app.use("/api/chat", chatRouter);
-app.use("/api/analyze-emotion-music", analyzeEmotionMusicRouter);
 app.use("/api/prompt", promptRouter);
 app.use("/api/stable-audio", stableAudioRouter);
 

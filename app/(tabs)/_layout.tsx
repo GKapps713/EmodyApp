@@ -7,6 +7,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { Ionicons } from "@expo/vector-icons"; // ⬅️ 추가
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -26,68 +27,6 @@ export default function TabLayout() {
         }),
       }}
     >
-      {/* Home */}
-      {/* <Tabs.Screen
-        name="home"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
-          ),
-        }}
-      /> */}
-
-      {/* Mood Music */}
-      {/* <Tabs.Screen
-        name="moodMusic"
-        options={{
-          title: "Mood Music",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="musical-notes-outline"
-              size={size}
-              color={color}
-            />
-          ),
-        }}/> */}
-
-      {/* My Echoes */}
-      {/* <Tabs.Screen
-        name="myechoes"
-        options={{
-          title: "My Echoes",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="headset-outline" size={size} color={color} />
-          ),
-        }}
-      /> */}
-
-      {/* Our Echo */}
-      {/* <Tabs.Screen
-        name="ourecho"
-        options={{
-          title: "Our Echo",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="earth-outline" size={size} color={color} />
-          ),
-        }}
-      /> */}
-
-      {/* Chat */}
-      {/* <Tabs.Screen
-        name="chat"
-        options={{
-          title: "Chat",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      /> */}
-
       <Tabs.Screen
         name="compose"
         options={{
@@ -97,35 +36,15 @@ export default function TabLayout() {
           ),
         }}/>
 
-      {/* <Tabs.Screen
+     <Tabs.Screen
         name="CompositionsDevScreen"
         options={{
-          title: "Repo",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="hammer-outline" size={size} color={color} />
-          ),
-        }}/> */}
-
-      {/* DEV (개발 전용) */}
-      {/* <Tabs.Screen
-        name="dev"
-        options={{
-          title: "DEV",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="hammer-outline" size={size} color={color} />
-          ),
-        }}/> */}
-
-      {/* My Emody */}
-      {/* <Tabs.Screen
-        name="myemody"
-        options={{
-          title: "My Emody",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" size={size} color={color} />
+          title: "Debug",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "bug" : "bug-outline"} size={size} color={color} />
           ),
         }}
-      /> */}
+      />
 
     </Tabs>
   );

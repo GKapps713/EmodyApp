@@ -13,87 +13,6 @@ const openai = new OpenAI({
 // 🔐 키 로드 확인 (앞 10자리만 로그)
 console.log("✅ OPENAI_API_KEY:", process.env.OPENAI_API_KEY?.slice(0, 10));
 
-// 📌 기본 시스템 프롬프트 (한국어)
-const baseSystemPromptKo = `당신은 감정 분석 전문가이자 음악 치료사입니다. 
-사용자의 텍스트(혹은 감정 단어)를 분석하여 다음 9가지 감정 중 하나로 분류하고, 
-위로의 말(comfortMessage), 위인의 명언(inspirationalQuote), 음악 추천(musicRecommendation),
-감정 종류: sadness, joy, anxiety, anger, tired, emptiness, touched, confident, shy`;
-
-// 📌 언어별 프롬프트
-const emotionPrompts = {
-  ko: {
-    system: () => `
-${baseSystemPromptKo}
-
-반드시 아래 JSON 구조를 지켜주세요:
-
-{
-  "emotionType": "sadness | joy | anxiety | anger | tired | emptiness | touched | confident | shy",
-  "comfortMessage": "string",
-  "inspirationalQuote": "string",
-  "musicRecommendation": {
-    "searchQueries": ["string", "string", "string", "string", "string"],
-    "genre": "string",
-    "mood": "string"
-  }
-}
-`,
-    user: (text) =>
-      `다음 텍스트(혹은 감정)를 분석하고 JSON으로 작성해주세요: "${text}"`,
-  },
-
-  en: {
-    system: (useAiMusic = false) => `
-You are an emotion analysis expert and music therapist.
-Analyze the user's input and classify it into one of 9 emotions.
-Return a JSON object with the following structure:
-
-{
-  "emotionType": "sadness | joy | anxiety | anger | tired | emptiness | touched | confident | shy",
-  "comfortMessage": "string",
-  "inspirationalQuote": "string",
-  "musicRecommendation": {
-    "searchQueries": ["string", "string", "string", "string", "string"],
-    "genre": "string",
-    "mood": "string"
-  }
-}
-`,
-    user: (text) =>
-      `Please analyze the following input (text or emotion) and return JSON: "${text}"`,
-  },
-};
-
-// 📌 감정 분석
-export async function analyzeEmotion({ text, language = "ko" }) {
-  try {
-    const prompts = emotionPrompts[language] || emotionPrompts["en"];
-    const systemPrompt = prompts.system();
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompts.user(text) },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-    });
-
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-
-    return {
-      emotionType: result.emotionType,
-      comfortMessage: result.comfortMessage,
-      inspirationalQuote: result.inspirationalQuote,
-      musicRecommendation: result.musicRecommendation,
-    };
-  } catch (error) {
-    console.error("❌ OpenAI analyzeEmotion error:", error);
-    throw new Error("Failed to analyze emotion: " + (error.message || error));
-  }
-}
-
 // 📌 상담형 채팅
 export async function chatWithGpt(messages) {
   try {
@@ -109,129 +28,172 @@ export async function chatWithGpt(messages) {
   }
 }
 
-// export async function generateStableAudioPrompt({ emotion, mood, instruments, style }) {
-//   try {
-//     const instrumentText = instruments?.length ? instruments.join(", ") : "various instruments";
-
-//     const response = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       messages: [
-//         {
-//           role: "system",
-//           content: "You are an expert at writing rich, vivid, and concise prompts for AI music generation (Stable Audio). Always focus on atmosphere, instrumentation, and style.",
-//         },
-//         {
-//           role: "user",
-//           content: `
-// Generate a Stable Audio music prompt based on these details:
-// - Emotion: ${emotion}
-// - Mood: ${mood}
-// - Instruments: ${instrumentText}
-// - Style: ${style}
-
-// Write a vivid and descriptive prompt (1–2 sentences max) that clearly conveys:
-// - The overall atmosphere and emotion
-// - The instrumentation and how they should sound
-// - The style or genre of the piece
-
-// Avoid generic phrases, be specific and creative, but do not exceed two sentences.`,
-//         },
-//       ],
-//     });
-
-//     return response.choices[0].message.content?.trim() || "";
-//   } catch (err) {
-//     console.error("❌ generateStableAudioPrompt error:", err);
-//     throw err;
-//   }
-// }
-
-export async function analyzeVideoWithThumbnails({ thumbnails, durationSec, options }) {
-  try {
-    // 시스템 메시지 설정
-    const sysPrompt = `
-    당신은 영상편집/음악 큐레이션 전문가입니다.
-    아래와 같은 정보를 기반으로 영상의 분위기, 감정, 추천 장르, 스타일을 분석해주세요.
-    - [썸네일 이미지 URL 리스트]
-    - [영상 전체 길이(초)]
-    반환 형태는 다음과 같은 JSON object로 해주세요:
-    {
-      "emotion": "기쁨 | 슬픔 | 평온 | ...",
-      "genre": "ambient | pop | ...",
-      "style": "neoclassical | lo-fi | ...",
-      "mood": "따뜻함 | 몽환적 | 어둡고 진지한 | ...",
-      "description": "영상에서 느껴지는 전체적 분위기와 해설"
-    }
-    `;
-    
-    const thumbnailsListMd = thumbnails.map((url, i) => `썸네일 #${i + 1}: ${url}`).join('\n');
-    const userMsg = `
-    아래 영상을 분석해주세요. 
-    (썸네일: ${thumbnails.length}개, 전체 길이: ${durationSec}초)
-    ${thumbnailsListMd}
-    `;
-    
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: sysPrompt },
-        { role: "user", content: userMsg },
-      ],
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-    });
-
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    return result;
-
-  } catch (error) {
-    console.error("Error analyzing video thumbnails:", error);
-    throw new Error("Failed to analyze video thumbnails");
+/**
+ * Thumbnails (HTTP/HTTPS absolute URLs) → GPT Vision
+ * - No sharp/base64, just pass through URLs with image_url blocks
+ * - Strong logging to pinpoint failure stage
+ * - English-only schema
+ */
+export async function analyzeVideoWithThumbnails({ thumbnails, durationSec, options = {} }) {
+  // 1) normalize
+  const all = Array.isArray(thumbnails) ? thumbnails.filter(Boolean) : [];
+  const abs = all.filter(u => /^https?:\/\//i.test(u));
+  if (!abs.length) {
+    console.error("[thumbnails] invalid input:", thumbnails);
+    throw new Error("No valid absolute thumbnail URLs provided");
   }
+
+  // ✅ durationSec 필수 & 디폴트 제거
+  const rawDur = Number(durationSec);
+  if (!Number.isFinite(rawDur) || rawDur <= 0) {
+    throw new Error("durationSec is required and must be a positive number");
+  }
+  // 서비스 정책상 상한/하한만 적용
+  const dur = Math.max(5, Math.min(180, Math.round(rawDur)));
+
+  // ✅ 기본 10장, 필요시 options.maxThumbs로 조절
+  const MAX_THUMBS = Number.isFinite(options.maxThumbs) ? Math.max(1, Math.min(20, options.maxThumbs)) : 10;
+  const sample = abs.slice(0, Math.min(abs.length, MAX_THUMBS));
+
+  console.log("[thumbnails] dur:", dur, "count:", sample.length);
+  console.log("[thumbnails] firstUrls:", sample.slice(0, 2));
+
+  // 2) prompts (EN only)
+  const system = `
+You are a video-thumbnail analyst and music curation expert.
+Return a SINGLE JSON object ONLY. No extra text, no code fences, no explanations.
+
+Rules:
+- All field VALUES must be in ENGLISH.
+- Use ONE concise token/word for categorical fields.
+- Keep description to 1–2 concise English sentences.
+- Do not include any fields other than those in the schema.
+
+Schema (return exactly these keys):
+{
+  "emotion": "one English word (e.g., calm, joyful, melancholic, tense, dreamy, epic)",
+  "genre":   "one English word (e.g., ambient, lofi, orchestral, synthwave, pop, acoustic)",
+  "style":   "one English word (e.g., cinematic, minimal, organic, retro, neoclassical)",
+  "mood":    "one English word (e.g., warm, moody, dark, bright, ethereal, energetic)",
+  "description": "1–2 English sentences summarizing the overall atmosphere/subject/colors/composition"
+}
+  `.trim();
+
+  const userText =
+    `Analyze the thumbnails below and summarize the common atmosphere/subject/colors/composition for a ~${dur}s video. ` +
+    `Respond ONLY with the JSON object following the schema.`;
+
+  const userContent = [
+    { type: "text", text: userText },
+    ...sample.map(url => ({ type: "image_url", image_url: { url } })),
+  ];
+
+  // 3) OpenAI call
+  let resp;
+  try {
+    resp = await openai.chat.completions.create({
+      model: "gpt-4o", // or gpt-4o-mini
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ],
+    });
+  } catch (err) {
+    console.error("[thumbnails] OpenAI error:", err?.message || err);
+    throw new Error(`OpenAI request failed: ${err?.message || err}`);
+  }
+
+  // 4) parse (strict: no fallbacks)
+  const raw = resp?.choices?.[0]?.message?.content ?? "";
+  let json;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    console.error("[thumbnails] Non-JSON from OpenAI:", raw);
+    throw new Error("Failed to parse JSON from OpenAI");
+  }
+
+  // 5) basic strict check
+  const required = ["emotion", "genre", "style", "mood", "description"];
+  const missing = required.filter(k => !(k in json));
+  if (missing.length) {
+    console.error("[thumbnails] Missing keys:", missing, "json:", json);
+    throw new Error(`Missing required keys: ${missing.join(", ")}`);
+  }
+
+  return { ...json, durationSec: dur };
 }
 
-export async function generateMusicPrompt(emotion, genre, style, mood, description) {
+export async function generateMusicPrompt(params = {}) {
   try {
-    // instruments를 기본값으로 설정 (이 값은 필요에 따라 변경 가능)
-    const instruments = ["piano", "strings"];
-    
-    // 기본적으로 genre와 mood가 제공되지 않으면 빈 문자열로 처리
-    const genreText = genre || "ambient";
-    const moodText = mood || "dreamy";
-    const descriptionText = description || "A tranquil and peaceful video with scenic views.";
+    const {
+      title = "Untitled",
+      duration,
+      emotion = "Calm",
+      genre = "ambient",
+      style = "neoclassical",
+      mood = "warm",
+      description = "",
+    } = params;
 
-    // 프롬프트 생성
-    const prompt = `
-    Generate a Stable Audio music prompt based on these details:
-    - Emotion: ${emotion}
-    - Genre: ${genreText}
-    - Mood: ${moodText}
-    - Style: ${style || "neoclassical"}
-    - Description: ${descriptionText}
-    - Instruments: ${instruments.join(", ")}
+    const rawDur = Number(duration);
+    if (!Number.isFinite(rawDur) || rawDur <= 0) {
+      throw new Error("duration is required and must be a positive number");
+    }
+    const safeDuration = Math.max(5, Math.min(180, Math.round(rawDur)));
 
-Write a vivid and descriptive prompt (1–2 sentences max) that clearly conveys:
-- The overall atmosphere and emotion
-- The instrumentation and how they should sound
-- The style or genre of the piece
+    console.log("[generateMusicPrompt] duration(actual):", safeDuration); // ✅ 실제 사용값 로그
 
-Avoid generic phrases, be specific and creative, but do not exceed two sentences.
-`;
+    // ✅ 백틱 템플릿으로 수정, 불필요 변수 제거
+    const system = `
+You are an expert Stable Audio prompt writer. Be concise (1–2 sentences, max 100 words) and vivid.
+Follow the requested structure but keep musical choices flexible.
+When guidance includes ranges (e.g., 70–90 BPM), choose what best fits the analysis.
+Do not add disclaimers or metadata; output only the final prose prompt.
+`.trim();
 
-    // OpenAI API를 사용하여 프롬프트 생성
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",  // 모델 변경 가능
+    const user = `
+Generate a Stable Audio prompt for a ~${safeDuration}s track based on this video analysis.
+
+Structure (guide, not rules): start with genre/style, list 2–4 key instruments,
+suggest a suitable BPM RANGE (not a single value) unless the context clearly implies a specific tempo,
+describe mood in 2–3 adjectives, outline an energy curve and any timing accents; end with brief context if helpful.
+
+Analysis summary:
+- Title: ${title}
+- Emotion: ${emotion}, Mood: ${mood}, Style: ${style}, Genre: ${genre}
+- Visual notes: ${description || "—"}
+
+Guidance:
+- Typical tempo ranges (examples only): ambient 70–90, lofi 70–92, synthwave 90–120, orchestral 60–80; pick what best fits the analysis and energy.
+- If visuals suggest higher motion, feel free to go above the typical range.
+
+Return 1–2 sentences that describe atmosphere, instrumentation, motion/energy, and accents. Avoid lists or bullet points.
+`.trim();
+
+    const resp = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are an expert at writing rich, vivid, and concise prompts for AI music generation (Stable Audio). Focus on atmosphere, instrumentation, and style." },
-        { role: "user", content: prompt },
+        { role: "system", content: system },
+        { role: "user", content: user },
       ],
       temperature: 0.7,
     });
 
-    // 결과 반환
-    return response.choices[0].message.content?.trim() || "";
+    const out = resp?.choices?.[0]?.message?.content?.trim() || "";
+    return out;
   } catch (err) {
-    console.error("❌ generateMusicPrompt error:", err);
-    throw new Error("Failed to generate music prompt");
+    console.error("❌ generateMusicPrompt error:",
+      err?.response?.status,
+      err?.response?.data || err?.message || err
+    );
+    const reason =
+      err?.response?.data?.error?.message ||
+      err?.response?.data?.message ||
+      err?.message ||
+      "Unknown error";
+    throw new Error("Failed to generate music prompt: " + reason);
   }
 }

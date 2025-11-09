@@ -2,6 +2,7 @@
 import { exec } from "child_process";
 import express from "express";
 import fs from "fs";
+import pLimit from "p-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 import { analyzeVideoWithThumbnails } from "../services/openaiService.js";
@@ -14,218 +15,334 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// EB 배포 기준 절대 경로 (필요 시 환경변수로 치환 가능)
-const UPLOAD_DIR = path.resolve("/var/app/current/uploads"); // 업로드된 비디오 저장소
-const SHOTS_DIR  = path.resolve("/var/app/current/shots");   // 생성되는 샷 썸네일 저장소
+const UPLOAD_DIR = path.resolve("/var/app/current/uploads");
+const SHOTS_DIR  = path.resolve("/var/app/current/shots");
 
-// 파일 상단 유틸 근처에 추가
+// 동시 실행 2개 제한
+const limit = pLimit(2);
+
+// OpenCV는 있으면 사용, 없으면 null (자동 폴백)
+const cvPromise = import('opencv4nodejs')
+  .then((m) => m?.default ?? m)
+  .catch(() => null);
+
+// ───────────────────────────────────────────────────────────
+// Exec helper
+// ───────────────────────────────────────────────────────────
+function execAsync(cmd, opts = {}) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { maxBuffer: 1024 * 1024 * 1024, ...opts }, (err, stdout, stderr) => {
+      if (err) return reject(new Error(stderr || err.message));
+      resolve({ stdout: stdout ?? "", stderr: stderr ?? "" });
+    });
+  });
+}
+
+// ───────────────────────────────────────────────────────────
+// Utilities
+// ───────────────────────────────────────────────────────────
 function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-
-function listShotImages(baseNameNoExt) {
-  if (!fs.existsSync(SHOTS_DIR)) {
-    console.log("[listShotImages] SHOTS_DIR does not exist:", SHOTS_DIR);
-    return [];
-  }
-
-  const files = fs.readdirSync(SHOTS_DIR);
-  console.log("[listShotImages] Files in SHOTS_DIR:", files);
-  const idPattern = escapeRegex(baseNameNoExt).replace(/\\\./g, '[._]');
-  console.log("[listShotImages] idPattern:", idPattern);
-  
-  const re = new RegExp(
-    `^${escapeRegex(baseNameNoExt)}-Scene-(\\d{1,4})-(\\d{1,4})\\.(?:jpe?g|png)$`,
-    'i'
-  );
-
-  const found = [];
-  for (const f of files) {
-    const m = f.match(re);
-    console.log("[listShotImages] Checking file:", f, "Match:", m);
-    if (m) {
-      const idx = parseInt(m[1], 10);
-      if (Number.isFinite(idx)) {
-        found.push({ index: idx, filename: f });
-      }
-    }
-  }
-  found.sort((a, b) => a.index - b.index);
-  console.log("[listShotImages] Found shots:", found);
-  return found;
-}
-
 function getBaseUrl(req) {
-   const env = (process.env.PUBLIC_BASE_URL || "").replace(/\/+$/, "");
-   if (env) return env; // 환경변수 우선
-   const host = req.get("host"); // e.g. api.emodyapp.com
-   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https");
-   return `${proto}://${host}`;
- }
-
-// 보조: 안전한 URL → 파일명 추출
+  const env = (process.env.PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+  if (env) return env;
+  const host = req.get("host");
+  const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+  return `${proto}://${host}`;
+}
 function getVideoIdFromUrl(videoUrl) {
   try {
     const u = new URL(videoUrl);
     return path.basename(u.pathname);
   } catch {
-    // 만약 절대 URL이 아니면 fallback
     return path.basename(videoUrl);
   }
 }
-
-// 보조: 파일 존재 확인
 function assertFileExists(p) {
-  if (!fs.existsSync(p)) {
-    const msg = `File not found: ${p}`;
-    throw new Error(msg);
-  }
+  if (!fs.existsSync(p)) throw new Error(`File not found: ${p}`);
 }
-
-// 보조: 3자리 zero padding
-function pad3(n) {
-  return String(n).padStart(3, "0");
-}
-
-// 업로드된 비디오의 서버 내 실제 경로
 function getLocalVideoFilePath(videoId) {
   return path.join(UPLOAD_DIR, videoId);
 }
-
-function runSceneDetectSaveImages(videoId) {
-  return new Promise((resolve, reject) => {
-    const videoPath = getLocalVideoFilePath(videoId);
-    try { assertFileExists(videoPath); } catch (e) { return reject(e.message); }
-
-    if (!fs.existsSync(SHOTS_DIR)) {
-      fs.mkdirSync(SHOTS_DIR, { recursive: true });
+async function ffprobeDuration(absPath) {
+  const { stdout } = await execAsync(
+    `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "${absPath}"`
+  );
+  const sec = parseFloat(String(stdout).trim());
+  return Number.isFinite(sec) ? sec : 0;
+}
+function clearOldShots(baseNameNoExt) {
+  if (!fs.existsSync(SHOTS_DIR)) return;
+  const files = fs.readdirSync(SHOTS_DIR);
+  const re = new RegExp(`^${escapeRegex(baseNameNoExt)}-Scene-\\d{1,4}-\\d{1,4}\\.(?:jpe?g|png)$`, "i");
+  let removed = 0;
+  for (const f of files) {
+    if (re.test(f)) {
+      try { fs.unlinkSync(path.join(SHOTS_DIR, f)); removed++; } catch {}
     }
-
-    const baseNameNoExt = path.parse(videoId).name;
-
-  const cmd =
-    `scenedetect -i "${videoPath}" ` +
-    `detect-content ` +
-    `save-images ` +
-    `--output "${SHOTS_DIR}" ` +
-    // 확장자를 템플릿에 직접 포함 → JPG로 저장
-    `--filename "${baseNameNoExt}-Scene-\\$SCENE_NUMBER-\\$IMAGE_NUMBER" ` +
-    `--num-images 1 ` +     // ✅ 씬당 한 장만 저장
-    `--quality 90`;
-
-    console.log("[SceneDetect] ===== save-images START =====");
-    console.log("[SceneDetect] videoPath:", videoPath);
-    console.log("[SceneDetect] cmd:", cmd);
-
-    exec(cmd, (error, stdout, stderr) => {
-      console.log("[SceneDetect] stdout:", stdout);
-      console.error("[SceneDetect] stderr:", stderr);
-      if (error) {
-        console.error("[SceneDetect] error:", error.message);
-        return reject(`SceneDetect save-images failed: ${stderr || error.message}`);
-      }
-      resolve();
-    });
-  });
+  }
+  if (removed) console.log(`[clearOldShots] removed ${removed} for ${baseNameNoExt}`);
 }
 
 // ───────────────────────────────────────────────────────────
-// SceneDetect: 씬 시간 추출 (list-scenes)
-//   - stdout 파싱하여 씬 시작/대표 시간(초)을 구함
-//   - 파싱 로직은 출력 형식에 따라 조정 가능
+// Black intervals via ffmpeg blackdetect (샘플링 최적화)
 // ───────────────────────────────────────────────────────────
-function getShotTimesFromPySceneDetect(videoId) {
-  return new Promise((resolve, reject) => {
-    const videoPath = getLocalVideoFilePath(videoId);
-    try {
-      assertFileExists(videoPath);
-    } catch (e) {
-      return reject(e.message);
+async function getBlackIntervals(videoPath) {
+  assertFileExists(videoPath);
+  const cmd =
+    `ffmpeg -hide_banner -nostats -i "${videoPath}" ` +
+    `-vf "blackdetect=d=0.08:pic_th=0.98:pix_th=0.10,select=not(mod(n\\,10))" -an -f null - 2>&1`;
+  const { stderr } = await execAsync(cmd);
+  const intervals = [];
+  const re = /black_start:(\d+(?:\.\d+)?)\s+black_end:(\d+(?:\.\d+)?)/g;
+  let m;
+  while ((m = re.exec(stderr)) !== null) {
+    intervals.push({ start: parseFloat(m[1]), end: parseFloat(m[2]) });
+  }
+  return intervals;
+}
+function adjustAwayFromBlack(t, intervals, pad = 0.02) {
+  let tt = t;
+  for (const iv of intervals) {
+    if (tt >= iv.start - pad && tt <= iv.end + pad) {
+      tt = iv.end + 0.05;
     }
+  }
+  return tt;
+}
 
-    const cmd =
-      `scenedetect -i "${videoPath}" ` +
-      `detect-content ` +
-      `list-scenes`;
-
-    console.log("[getShotTimes] Executing command:", cmd);
-    exec(cmd, (error, stdout, stderr) => {
-      console.log("[getShotTimes] stdout:", stdout);
-      console.error("[getShotTimes] stderr:", stderr);
-      if (error) {
-        console.error("[getShotTimes] error:", error.message);
-        return reject(`SceneDetect list-scenes failed: ${stderr || error.message}`);
-      }
-
-      // 출력 예시는 환경에 따라 다를 수 있음.
-      // 아래는 'Scene' 단어 포함 라인을 모아 숫자(초, 소수)만 추출하는 단순 파서.
-      const times = stdout
-        .split("\n")
-        .filter((line) => /Scene/i.test(line))
-        .map((line) => {
-          // 첫 번째 부동소수 찾기 (예: "6.2", "12.8")
-          const m = line.match(/(\d+\.\d+)/);
-          return m ? parseFloat(m[1]) : null;
-        })
-        .filter((x) => typeof x === "number" && isFinite(x));
-
-      console.log("[getShotTimes] Extracted times:", times);
-      resolve(times);
-    });
+// ───────────────────────────────────────────────────────────
+// Capture single frame (buffer or file)
+// ───────────────────────────────────────────────────────────
+async function captureFrameBuffer(videoPath, timeSec, quality = 3) {
+  assertFileExists(videoPath);
+  const cmd =
+    `ffmpeg -hide_banner -ss ${timeSec.toFixed(3)} -i "${videoPath}" ` +
+    `-frames:v 1 -q:v ${quality} -f image2pipe -vcodec mjpeg -`;
+  return new Promise((resolve, reject) => {
+    const child = exec(cmd, { maxBuffer: 1024 * 1024 * 50 });
+    const chunks = [];
+    child.stdout.on("data", (d) => chunks.push(Buffer.from(d)));
+    child.on("close", () => resolve(Buffer.concat(chunks)));
+    child.on("error", reject);
   });
+}
+async function captureFrameToFile(videoPath, timeSec, outPath, quality = 3) {
+  assertFileExists(videoPath);
+  const cmd =
+    `ffmpeg -hide_banner -y -ss ${timeSec.toFixed(3)} -i "${videoPath}" ` +
+    `-frames:v 1 -q:v ${quality} "${outPath}"`;
+  await execAsync(cmd);
+}
+
+// ───────────────────────────────────────────────────────────
+// Keyframe sampling & scoring
+// ───────────────────────────────────────────────────────────
+function keyframeCountForDuration(sec) {
+  sec = Math.max(1, sec);
+  if (sec <= 10) return 3;
+  if (sec <= 30) return 5;
+  if (sec <= 60) return 7;
+  return Math.min(10, Math.max(7, Math.ceil(sec / 18)));
+}
+
+function makeCandidateTimes(durationSec, wantK, oversample = 3, safety = 0.25) {
+  const n = wantK * oversample;
+  const start = safety;
+  const end = Math.max(safety, durationSec - safety);
+  if (end <= start) return [Math.max(0, durationSec / 2)];
+  const step = (end - start) / n;
+  const times = [];
+  for (let i = 0; i < n; i++) times.push(start + step * (i + 0.5));
+  return times;
+}
+// 폴백: 바이트 샘플 차분 (경량)
+function byteDiffScore(bufA, bufB) {
+  if (!bufA || !bufB) return 0;
+  const len = Math.min(bufA.length, bufB.length);
+  if (len === 0) return 0;
+  const stride = Math.max(1, Math.floor(len / 5000)); // 최대 5k 샘플
+  let diff = 0;
+  for (let i = 0; i < len; i += stride) {
+    if (bufA[i] !== bufB[i]) diff++;
+  }
+  return diff / Math.ceil(len / stride);
+}
+// OpenCV가 있으면 더 정확한 차분 사용
+async function opencvDiffScore(bufA, bufB) {
+  const cv = await cvPromise;
+  if (!cv) return null; // 없으면 사용 안함
+  try {
+    const imgA = cv.imdecode(bufA);
+    const imgB = cv.imdecode(bufB);
+    const grayA = imgA.cvtColor(cv.COLOR_BGR2GRAY).resize(64, 64);
+    const grayB = imgB.cvtColor(cv.COLOR_BGR2GRAY).resize(64, 64);
+    const diff = grayA.absdiff(grayB);
+    const mean = diff.mean(); // [b,g,r] 혹은 [gray]
+    return Array.isArray(mean) ? mean[0] : mean; // 0~255
+  } catch {
+    return null;
+  }
+}
+function enforceMinGap(picks, minGapSec, t) {
+  return picks.every((pt) => Math.abs(pt - t) >= minGapSec);
+}
+
+// ───────────────────────────────────────────────────────────
+// withLimit 헬퍼 (p-limit로 라우트 감싸기)
+// ───────────────────────────────────────────────────────────
+function withLimit(handler) {
+  return async (req, res, next) => {
+    try {
+      await limit(() => handler(req, res, next));
+    } catch (e) {
+      next(e);
+    }
+  };
 }
 
 // ───────────────────────────────────────────────────────────
 // Route: POST /api/analyze-video/basic
+//   - 균등/가중 샘플링 + 차분 기반 키프레임 + 검은 구간 회피
+//   - 동시성 제한, 안전 재시도/클램프, OpenCV 사용 시 정확도 향상
 // ───────────────────────────────────────────────────────────
-router.post("/basic", async (req, res) => {
+router.post("/basic", withLimit(async (req, res) => {
   try {
     const { videoUrl } = req.body || {};
     if (!videoUrl) return res.status(400).json({ error: "videoUrl is required" });
 
     const videoId = getVideoIdFromUrl(videoUrl);
-    const localVideoPath = getLocalVideoFilePath(videoId);
-    if (!fs.existsSync(localVideoPath)) {
+    const videoPath = getLocalVideoFilePath(videoId);
+    if (!fs.existsSync(videoPath)) {
       return res.status(404).json({ error: `Video not found on server: ${videoId}` });
     }
 
+    if (!fs.existsSync(SHOTS_DIR)) fs.mkdirSync(SHOTS_DIR, { recursive: true });
+    const baseNameNoExt = path.parse(videoId).name;
     const baseUrl = getBaseUrl(req);
     const shotsBaseUrl = `${baseUrl}/shots`;
-    const baseNameNoExt = path.parse(videoId).name;
 
-    // 1) 썸네일 생성
-    await runSceneDetectSaveImages(videoId);
+    // 0) 정리
+    clearOldShots(baseNameNoExt);
 
-    // 2) 씬 타임
-    const shotTimes = await getShotTimesFromPySceneDetect(videoId);
+    // 1) 길이 (상한 180s)
+    let durationSec = Math.round(await ffprobeDuration(videoPath));
+    if (durationSec > 180) {
+      console.warn(`[analyze] Long video: ${durationSec}s, truncating analysis to 180s`);
+      durationSec = 180;
+    }
+    durationSec = Math.max(1, durationSec);
 
-    // 3) 디스크에 실제 생성된 파일명 스캔
-    const found = listShotImages(baseNameNoExt);
-    console.log("[AnalyzeVideo] shots on disk:", found.map(f => f.filename));
+    console.log(`[analyze-basic] durationSec(ffprobe): ${durationSec}s`); // ✅ 명시 로그
+    
+    // 2) 목표 K 및 후보 타임스탬프
+    const K = keyframeCountForDuration(durationSec);
+    // 길이가 길수록 오버샘플 완만하게 (3 → 2.5) (미세 최적화)
+    const oversample = durationSec > 120 ? 2.5 : 3;
+    const candidateTimes = makeCandidateTimes(durationSec, K, oversample, 0.25);
 
-    // 방어: 생성물 없으면 빈 배열
-    if (!found.length) {
-      return res.json({
-        durationSec: 30,
-        shots: [],
-        motion: { avg: 0.58, peaks: [12.8, 19.7] },
-        color: { primary: "#7ecbff", brightness: 0.74, warmth: -0.1 },
-        audio: { lufs: -16.8, speechRatio: 0.35, tempoBpm: 98, tempoConf: 0.6, key: "D", mode: "minor", keyConf: 0.45, silences: [{ start: 5.1, end: 5.7 }] },
-        semantics: { language: "auto", keywords: ["여행", "바다"], sentiment: "calm" },
-        syncPoints: [12.8, 19.7],
-        delivery: { platform: "tiktok", needsLoop: true, voPresent: false },
-      });
+    // 3) 검은 구간
+    const blackIntervals = await getBlackIntervals(videoPath);
+
+    // 4) 후보 프레임 추출(버퍼) & 연속 차분 스코어링
+    const buffers = [];
+    for (let i = 0; i < candidateTimes.length; i++) {
+      let safeT = adjustAwayFromBlack(candidateTimes[i], blackIntervals);
+      safeT = Math.min(Math.max(0.05, safeT), Math.max(0.06, durationSec - 0.06)); // 안전 범위
+      const buf = await captureFrameBuffer(videoPath, safeT, 3);
+      if (!buf || buf.length < 1500) {
+        // 재시도 (영상 끝 범위 보호)
+        let retryT = Math.min(safeT + 0.1, Math.max(0.06, durationSec - 0.06));
+        let ok = false;
+        for (let r = 0; r < 2; r++) {
+          const rb = await captureFrameBuffer(videoPath, retryT, 3);
+          if (rb && rb.length >= 1500) {
+            buffers.push({ t: retryT, buf: rb });
+            ok = true;
+            break;
+          }
+          retryT = Math.min(retryT + 0.1, Math.max(0.06, durationSec - 0.06));
+        }
+        if (!ok) buffers.push({ t: safeT, buf: buf || Buffer.alloc(0) });
+      } else {
+        buffers.push({ t: safeT, buf });
+      }
     }
 
-    // 4) 실제 파일명으로 응답 shots 구성 (타임은 shotTimes와 index 맞춰 매핑)
-    const shots = found.map((f, idx) => ({
-      time: Number(((shotTimes?.[idx] ?? 0)).toFixed?.(1) ?? 0),
-      imagePath: `${shotsBaseUrl}/${f.filename}`,
+    // OpenCV가 있으면 OpenCV로, 없으면 바이트 차분으로
+    const cv = await cvPromise;
+    let scores = [];
+    if (cv) {
+      // OpenCV 차분 (0~255, 높을수록 변화 큼)
+      for (let i = 1; i < buffers.length; i++) {
+        const s = await opencvDiffScore(buffers[i - 1].buf, buffers[i].buf);
+        scores.push({ idx: i, score: (s ?? 0), t: buffers[i].t });
+      }
+    } else {
+      for (let i = 1; i < buffers.length; i++) {
+        const d = byteDiffScore(buffers[i - 1].buf, buffers[i].buf);
+        scores.push({ idx: i, score: d, t: buffers[i].t });
+      }
+    }
+    // 큰 변화량 우선
+    scores.sort((a, b) => b.score - a.score);
+
+    // 5) K개 선정(최소 간격 0.75s 보장)
+    const pickedTimes = [];
+    const MIN_GAP = 0.75;
+    for (const s of scores) {
+      if (pickedTimes.length >= K) break;
+      if (enforceMinGap(pickedTimes, MIN_GAP, s.t)) pickedTimes.push(s.t);
+    }
+    // 부족하면 균등 분할로 보충
+    if (pickedTimes.length < K) {
+      const step = durationSec / (K + 1);
+      for (let i = 1; i <= K; i++) {
+        const t = Math.min(Math.max(0.05, step * i), Math.max(0.06, durationSec - 0.06));
+        if (enforceMinGap(pickedTimes, MIN_GAP, t)) pickedTimes.push(t);
+        if (pickedTimes.length >= K) break;
+      }
+    }
+    pickedTimes.sort((a, b) => a - b);
+
+    // 6) 최종 썸네일 저장 (파일)
+    const saved = [];
+    for (let i = 0; i < pickedTimes.length; i++) {
+      const t = pickedTimes[i];
+      const idxStr = String(i + 1).padStart(3, "0");
+      const fileName = `${baseNameNoExt}-Scene-${idxStr}-01.jpg`;
+      const outPath = path.join(SHOTS_DIR, fileName);
+      try {
+        await captureFrameToFile(videoPath, t, outPath, 3);
+        // 너무 작으면 재시도 (끝 범위 보호)
+        const minT = 0.05;
+        const maxT = Math.max(0.06, durationSec - 0.06);
+        let st = fs.statSync(outPath);
+        if (st.size < 1500) {
+          let retryT = Math.min(t + 0.1, maxT);
+          for (let r = 0; r < 2; r++) {
+            await captureFrameToFile(videoPath, retryT, outPath, 3);
+            st = fs.statSync(outPath);
+            if (st.size >= 1500) break;
+            retryT = Math.min(retryT + 0.1, maxT);
+          }
+        }
+        saved.push({ time: Number(t.toFixed(1)), filename: fileName });
+      } catch (e) {
+        console.warn(`[save] failed at t=${t.toFixed(3)}:`, e?.message || e);
+      }
+    }
+
+    const shots = saved.map((s) => ({
+      time: s.time,
+      imagePath: `${shotsBaseUrl}/${s.filename}`,
     }));
 
     return res.json({
-      durationSec: 30,
+      durationSec,
       shots,
+      // 아래는 기존 스키마 호환용 목업 필드
       motion: { avg: 0.58, peaks: [12.8, 19.7] },
       color: { primary: "#7ecbff", brightness: 0.74, warmth: -0.1 },
       audio: { lufs: -16.8, speechRatio: 0.35, tempoBpm: 98, tempoConf: 0.6, key: "D", mode: "minor", keyConf: 0.45, silences: [{ start: 5.1, end: 5.7 }] },
@@ -237,23 +354,24 @@ router.post("/basic", async (req, res) => {
     console.error("AnalyzeVideo-basic error:", e);
     return res.status(500).json({ error: "Failed to analyze video (basic)" });
   }
-});
+}));
 
+// ───────────────────────────────────────────────────────────
+// Route: POST /api/analyze-video/thumbnails (기존 유지)
+// ───────────────────────────────────────────────────────────
 router.post("/thumbnails", async (req, res) => {
-  const { thumbnails, durationSec } = req.body;
   try {
-    // GPT에 분석 요청
-    const analysisResult = await analyzeVideoWithThumbnails({
-      thumbnails,
-      durationSec,
-      options: {},
-    });
+    const { thumbnails = [], durationSec = 30 } = req.body || {};
+    console.log("[/thumbnails] body:", { count: thumbnails?.length, durationSec });
 
-    // 결과를 클라이언트에 반환
-    res.json(analysisResult);
+    const result = await analyzeVideoWithThumbnails({ thumbnails, durationSec, options: {} });
+    return res.json(result);
   } catch (error) {
-    console.error("Error analyzing video thumbnails:", error);
-    res.status(500).json({ error: "Failed to analyze video thumbnails" });
+    console.error("[/thumbnails] error:", error?.message || error);
+    return res.status(500).json({
+      error: "Failed to analyze video thumbnails",
+      detail: String(error?.message || error),
+    });
   }
 });
 

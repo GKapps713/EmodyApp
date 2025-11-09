@@ -16,7 +16,7 @@ export default function ComposeScreen() {
   const [shareVisible, setShareVisible] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);  // 새로 추가된 상태
 
-  const pipeline = useComposePipeline({ flags: { dummyGenerate: true } });
+  const pipeline = useComposePipeline();
   const { pickVideo } = useVideoPicker();
 
   const STATUS_TARGET: Record<string, number> = {

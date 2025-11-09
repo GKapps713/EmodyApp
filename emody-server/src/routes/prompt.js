@@ -1,3 +1,4 @@
+// src/routes/prompt.js
 import express from "express";
 import { generateMusicPrompt } from "../services/openaiService.js";
 
@@ -5,20 +6,30 @@ const router = express.Router();
 
 router.post("/", async (req, res) => {
   try {
-    // 요청 바디에서 데이터 풀기
-    const { title, duration, emotion, mood, instruments, style } = req.body;
-
-    // generateMusicPrompt 함수에 데이터를 풀어서 전달
-    const prompt = await generateMusicPrompt(
+    const {
+      title,           // 클라이언트에서 같이 옴 (표기용)
+      duration,        // number (초) 5~180로 클램프는 서비스 함수에서 수행
       emotion,
+      genre,
+      style,
       mood,
-      instruments,
-      style
-    );
+      description,
+    } = req.body || {};
 
-    res.json({ prompt, title, duration }); // ← title, duration도 그대로 클라이언트에 돌려줌
+    const prompt = await generateMusicPrompt({
+      title,
+      duration,
+      emotion,
+      genre,
+      style,
+      mood,
+      description,
+    });
+
+    res.json({ prompt, title, duration });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("prompt route error:", err);
+    res.status(500).json({ error: err.message || "Failed to build prompt" });
   }
 });
 
