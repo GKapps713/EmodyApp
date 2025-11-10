@@ -1,3 +1,4 @@
+// app/(tabs)/home.tsx
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import { Alert, Text, View } from "react-native";

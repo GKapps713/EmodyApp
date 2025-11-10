@@ -1,3 +1,4 @@
+// app/(tabs)/_layout.tsx
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
@@ -14,7 +15,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      screenOptions={{
+        screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarButton: HapticTab,
@@ -28,7 +29,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="compose"
+        name="home"
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
