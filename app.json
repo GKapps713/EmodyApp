@@ -2,7 +2,7 @@
   "expo": {
     "name": "SoundFit",
     "slug": "EmodyApp",
-    "version": "1.0.6",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/emody.png",
     "scheme": "emodyapp",
@@ -14,7 +14,9 @@
       "bundleIdentifier": "com.gkapps713.emodyapp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryAddUsageDescription": "EmodyApp needs access to your photo library to save generated videos."
+        "NSPhotoLibraryAddUsageDescription": "SoundFit needs access to your photo library to save generated videos.",
+        "NSPhotoLibraryUsageDescription": "SoundFit needs access to your photo library to pick videos.",
+        "NSCameraUsageDescription": "SoundFit needs access to your camera to record videos."
       }
     },
     "android": {

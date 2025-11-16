@@ -47,6 +47,16 @@ export default function TabLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="LogsScreen"  // 새로운 탭 이름
+        options={{
+          title: "Logs",  // 탭의 타이틀
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="document-text" size={size} color={color} /> // 아이콘
+          ),
+        }}
+      />
+      
     </Tabs>
   );
 }

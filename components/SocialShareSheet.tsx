@@ -1,19 +1,19 @@
 import {
-    FontAwesome,
-    FontAwesome5,
-    MaterialCommunityIcons,
+  FontAwesome,
+  FontAwesome5,
+  MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import React from "react";
 import {
-    AccessibilityRole,
-    FlatList,
-    Image,
-    ImageSourcePropType,
-    Modal,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  AccessibilityRole,
+  FlatList,
+  Image,
+  ImageSourcePropType,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 /** ===========================

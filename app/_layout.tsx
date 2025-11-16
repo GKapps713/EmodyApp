@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-get-random-values';
 import 'react-native-reanimated';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { LogsProvider } from '../src/context/LogsContext';
 
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
 
@@ -19,14 +20,16 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        {/* 탭 그룹을 자식으로 포함 */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        {/* not-found 화면은 유지 */}
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+     <LogsProvider> {/* LogsProvider로 앱을 감쌈 */}
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack>
+          {/* 탭 그룹을 자식으로 포함 */}
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* not-found 화면은 유지 */}
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </LogsProvider>
   );
 }
